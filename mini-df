@@ -8,59 +8,67 @@ VALID_FS = [
 ]
 
 def humanize(size):
-    for unit in ["B", "K", "M", "G", "T", "P"]:
+    for unit in "BKMGTP":
         if size < 1024:
             return f"{size:.1f}{unit}"
         size /= 1024
     return f"{size:.1f}P"
 
 def get_stats(path):
-    stat = os.statvfs(path)
-    total = stat.f_blocks * stat.f_frsize
-    free = stat.f_bfree * stat.f_frsize
-    return total, free
-
-def get_all_mounts():
-    mounts = []
-    with open("/proc/self/mounts") as f:
-        for line in f:
-            parts = line.split()
-            if len(parts) < 4:
-                continue
-            device, mnt, fstype, *_ = parts
-            if fstype not in VALID_FS:
-                continue
-            mounts.append((device, mnt))
-    return mounts
+    s = os.statvfs(path)
+    return s.f_blocks * s.f_frsize, s.f_bfree * s.f_frsize
 
 def main():
     args = sys.argv[1:]
-    hflag = False
-    if "-h" in args:
-        hflag = True
-        args.remove("-h")
+    human = "-h" in args
+    if human:
+        args = [a for a in args if a != "-h"]
 
-    if args:
-        mounts = [(p, p) for p in args]
+    print(f"{'Filesystem':<20} {'Total':>12} {'Free':>12} {'Mounted on'}")
+
+    if not args:
+        with open("/proc/self/mounts") as f:
+            for line in f:
+                parts = line.split()
+                if len(parts) < 4:
+                    continue
+                dev, mountpoint, fstype = parts[0], parts[1], parts[2]
+                if fstype not in VALID_FS:
+                    continue
+                try:
+                    total, free = get_stats(mountpoint)
+                except:
+                    continue
+                t = humanize(total) if human else f"{total:>12}"
+                f = humanize(free)  if human else f"{free:>12}"
+                print(f"{dev:<20} {t:>12} {f:>12} {mountpoint}")
     else:
-        mounts = get_all_mounts()
+        seen = set()
+        for path in args:
+            if not os.path.exists(path):
+                continue
+            p = os.path.abspath(path)
+            while p not in seen and not os.path.ismount(p):
+                p = os.path.dirname(p)
+            if p in seen:
+                continue
+            seen.add(p)
 
-    print(f"{'Filesystem':<20} {'Total':>12} {'Free':>12} Mounted on")
-    for device, mnt in mounts:
-        try:
-            total, free = get_stats(mnt)
-        except (FileNotFoundError, PermissionError, OSError):
-            # Silently skip any path we can't stat (no permission, stale, etc.)
-            continue
+            dev = "unknown"
+            with open("/proc/self/mounts") as f:
+                for line in f:
+                    if len(line.split()) >= 2 and line.split()[1] == p:
+                        dev = line.split()[0]
+                        break
 
-        if hflag:
-            total_out = f"{humanize(total):>12}"
-            free_out = f"{humanize(free):>12}"
-        else:
-            total_out = f"{total:>12}"
-            free_out = f"{free:>12}"
+            try:
+                total, free = get_stats(p)
+            except:
+                continue
 
-        print(f"{device:<20} {total_out} {free_out} {mnt}")
+            t = humanize(total) if human else f"{total:>12}"
+            f = humanize(free)  if human else f"{free:>12}"
+            print(f"{dev:<20} {t:>12} {f:>12} {p}")
 
 if __name__ == "__main__":
     main()
