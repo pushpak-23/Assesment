@@ -2,12 +2,17 @@
 import os
 import sys
 
+# List of filesystem types to display. Avoids showing pseudo mounts like proc, sysfs, etc.
 VALID_FS = [
     "ext4", "ext3", "ext2", "xfs", "btrfs", "zfs", "vfat",
     "nfs", "nfs4", "cifs", "tmpfs", "overlay"
 ]
 
 def humanize(size):
+    """
+    Convert size in bytes to a human-readable format (KB, MB, GB, etc.).
+    Example: 1073741824 -> "1.0G"
+    """
     for unit in "BKMGTP":
         if size < 1024:
             return f"{size:.1f}{unit}"
@@ -15,17 +20,25 @@ def humanize(size):
     return f"{size:.1f}P"
 
 def get_stats(path):
+    """
+    Return total and free bytes of the filesystem containing 'path'.
+    Uses statvfs to query filesystem block statistics.
+    """
     s = os.statvfs(path)
     return s.f_blocks * s.f_frsize, s.f_bfree * s.f_frsize
 
 def main():
     args = sys.argv[1:]
+    
+    # Check if -h (human readable output) flag is passed
     human = "-h" in args
     if human:
-        args = [a for a in args if a != "-h"]
+        args = [a for a in args if a != "-h"]  # remove -h from actual mount paths if present
 
+    # Print header row
     print(f"{'Filesystem':<20} {'Total':>12} {'Free':>12} {'Mounted on'}")
 
+    # Case 1: No paths provided → list all mounted filesystems
     if not args:
         with open("/proc/self/mounts") as f:
             for line in f:
@@ -33,20 +46,29 @@ def main():
                 if len(parts) < 4:
                     continue
                 dev, mountpoint, fstype = parts[0], parts[1], parts[2]
+
+                # Skip unsupported / virtual / pseudo filesystem types
                 if fstype not in VALID_FS:
                     continue
+
+                # Try fetching disk usage for this mountpoint
                 try:
                     total, free = get_stats(mountpoint)
                 except:
                     continue
+
                 t = humanize(total) if human else f"{total:>12}"
                 f = humanize(free)  if human else f"{free:>12}"
                 print(f"{dev:<20} {t:>12} {f:>12} {mountpoint}")
+
+    # Case 2: Path(s) provided → show stats only for those mountpoints
     else:
-        seen = set()
+        seen = set()    # To avoid duplicate mount display when multiple paths lie on same filesystem
         for path in args:
             if not os.path.exists(path):
                 continue
+
+            # Convert given path to its mountpoint
             p = os.path.abspath(path)
             while p not in seen and not os.path.ismount(p):
                 p = os.path.dirname(p)
@@ -54,6 +76,7 @@ def main():
                 continue
             seen.add(p)
 
+            # Find corresponding device for the mountpoint by scanning /proc/self/mounts
             dev = "unknown"
             with open("/proc/self/mounts") as f:
                 for line in f:
@@ -61,6 +84,7 @@ def main():
                         dev = line.split()[0]
                         break
 
+            # Get total and free space for that filesystem
             try:
                 total, free = get_stats(p)
             except:
