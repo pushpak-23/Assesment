@@ -11,9 +11,9 @@ Both scripts work without external dependencies and run on any Linux system with
 
 ---
 
-## 📁 1. mini-df — Disk Space Viewer
+##  1. mini-df — Disk Space Viewer
 
-`` `mini-df` is a simple alternative to the `df` command. It reads mounted filesystems from `/proc/self/mounts` and prints total and free space.
+``` `mini-df` is a simple alternative to the `df` command. It reads mounted filesystems from `/proc/self/mounts` and prints total and free space. 
 
 ```bash
 # Make executable
@@ -24,15 +24,15 @@ chmod +x mini-df mini-ls
 ./mini-ls -r .
 ```
 
-### 🔹 Usage
+### Usage
 ```bash
+# It will give output in Byte's
  ./mini-df
 Filesystem                  Total         Free Mounted on
 none                   4119871488   4119871488 /usr/lib/modules/5.15.153.1-microsoft-standard-WSL2
 none                   4119871488   4119867392 /mnt/wsl
 /dev/sdc             1081101176832 1068346138624 /
 ```
-it will give output in Byte's
 
 ## Human-readable output
 ```bash
@@ -44,7 +44,9 @@ none                         3.8G         3.8G /mnt/wsl
 ```
 ##  2. mini-ls  — Long Listing File Browser (ls -l alternative)
 
-`` `mini-ls`  displays file metadata including permission bits, owner, timestamps, and supports recursive listing.```
+``` `mini-ls`  displays file metadata including permission bits, owner, timestamps, and supports recursive listing.
+
+### Usage
 
 ## Recursive directory display (similar to ls -R):
 ```bash
@@ -55,8 +57,6 @@ none                         3.8G         3.8G /mnt/wsl
 
 ## Show details for a single file:
 ```bash
-
-`##List a specific path
 ./mini-ls mini-df
 -rwxr-xr-x  sentinel Nov 19 17:34 mini-df
 ```
