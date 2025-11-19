@@ -5,22 +5,35 @@ import time
 import pwd
 
 def format_mode(mode):
+    """
+    Convert a file mode (permission bits + file type) into an ls-style string.
+    Example: directory rwxr-xr-x → 'drwxr-xr-x'
+    """
     s = []
 
-    # File type
+    # Determine file type using bitmasking
     t = mode & 0o170000
-    s.append({0o040000: 'd', 0o120000: 'l', 0o100000: '-', 
-               0o010000: 'p', 0o020000: 'c', 0o060000: 'b', 0o140000: 's'}.get(t, '?'))
+    s.append({
+        0o040000: 'd',  # directory
+        0o120000: 'l',  # symlink
+        0o100000: '-',  # regular file
+        0o010000: 'p',  # named pipe
+        0o020000: 'c',  # character device
+        0o060000: 'b',  # block device
+        0o140000: 's'   # socket
+    }.get(t, '?'))  # unknown type fallback
 
-    # Owner rwx
+    # Owner permissions
     s.append('r' if mode & 0o400 else '-')
     s.append('w' if mode & 0o200 else '-')
     s.append('x' if mode & 0o100 else '-')
-    # Group rwx
+
+    # Group permissions
     s.append('r' if mode & 0o040 else '-')
     s.append('w' if mode & 0o020 else '-')
     s.append('x' if mode & 0o010 else '-')
-    # Others rwx
+
+    # Others permissions
     s.append('r' if mode & 0o004 else '-')
     s.append('w' if mode & 0o002 else '-')
     s.append('x' if mode & 0o001 else '-')
@@ -28,23 +41,37 @@ def format_mode(mode):
     return ''.join(s)
 
 def format_time(mtime):
+    """
+    Format timestamp similar to 'ls -l':
+    - If file modified within ~6 months → show HH:MM time
+    - Else → show year instead
+    """
     now = time.time()
-    if now - mtime < 180 * 24 * 3600:
+    if now - mtime < 180 * 24 * 3600:  # 180 days threshold
         return time.strftime("%b %d %H:%M", time.localtime(mtime))
     else:
         return time.strftime("%b %d  %Y", time.localtime(mtime))
 
 def get_owner(uid):
+    """
+    Convert numeric UID → username using /etc/passwd.
+    If lookup fails → return UID as string.
+    """
     try:
         return pwd.getpwuid(uid).pw_name
     except KeyError:
         return str(uid)
 
 def list_path(path, recursive=False):
+    """
+    Display file/directory contents in 'ls -l' style.
+    If recursive=True → descend into directories (like ls -R).
+    """
+
+    # Case: The provided path is a file, not a directory
     if not os.path.isdir(path):
-        # It's a file
         try:
-            st = os.lstat(path)
+            st = os.lstat(path)  # read metadata without following symlink
         except FileNotFoundError:
             print(f"mini-ls: cannot access '{path}': No such file or directory", file=sys.stderr)
             return
@@ -52,10 +79,11 @@ def list_path(path, recursive=False):
         print(f"{format_mode(st.st_mode)}  {get_owner(st.st_uid):8} {format_time(st.st_mtime)} {name}")
         return
 
-    # It's a directory
+    # Case: It is an accessible directory
     try:
         names = os.listdir(path)
     except PermissionError:
+        # Cannot read directory contents due to permissions
         print(f"mini-ls: cannot open directory '{path}': Permission denied", file=sys.stderr)
         return
 
@@ -63,33 +91,41 @@ def list_path(path, recursive=False):
     for name in names:
         fp = os.path.join(path, name)
         try:
-            st = os.lstat(fp)
+            st = os.lstat(fp)  # get metadata for each entry
             entries.append((fp, name, st))
         except:
-            continue
+            continue  # Skip unreadable entries silently
 
-    # Sort: dirs first, then by name
+    # Sorting: directories first, then alphabetical by name
     entries.sort(key=lambda x: (not (x[2].st_mode & 0o040000 == 0o040000), x[1].lower()))
 
+    # Display formatted listing
     for fp, name, st in entries:
         print(f"{format_mode(st.st_mode)}  {get_owner(st.st_uid):8} {format_time(st.st_mtime)} {name}")
+
+        # Recursive descent:
+        # Only go inside directories, ignore symlinks to prevent infinite recursion loops
         if recursive and (st.st_mode & 0o170000) == 0o040000 and not os.path.islink(fp):
-            print(f"\n{fp}:")
+            print(f"\n{fp}:")  # Print sub-directory title like `ls -R`
             list_path(fp, recursive=True)
 
 def main():
     args = sys.argv[1:]
+
+    # Detect recursive flag (-r) and remove it from paths
     recursive = "-r" in args
     if recursive:
         args = [a for a in args if a != "-r"]
 
+    # If no paths supplied → default to current directory
     paths = args or ["."]
 
+    # Iterate over all input paths (support multiple arguments)
     for i, path in enumerate(paths):
         if i > 0:
-            print()
+            print()  # blank line between path results
         if len(paths) > 1 or recursive:
-            print(f"{path}:")
+            print(f"{path}:")  # print path header
         list_path(path, recursive)
 
 if __name__ == "__main__":
