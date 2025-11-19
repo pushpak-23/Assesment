@@ -34,7 +34,7 @@ none                   4119871488   4119867392 /mnt/wsl
 ```
 it will give output in Byte's
 
-Human-readable outputhttps://app.codingrooms.com/w/4Mtidd0JN8mG
+## Human-readable output
 ```bash
 ./mini-df -h
 Filesystem                  Total         Free Mounted on
@@ -42,13 +42,21 @@ none                         3.8G         3.8G /usr/lib/modules/5.15.153.1-micro
 none                         3.8G         3.8G /mnt/wsl
 /dev/sdc                  1006.9G       995.0G /
 ```
+##  2. mini-ls  — Long Listing File Browser (ls -l alternative)
 
+`` `mini-ls`  displays file metadata including permission bits, owner, timestamps, and supports recursive listing.```
+
+## Recursive directory display (similar to ls -R):
 ```bash
 ./mini-ls -r
 -rwxr-xr-x  sentinel Nov 19 17:34 mini-df
 -rwxr-xr-x  sentinel Nov 19 17:36 mini-ls
+```
 
+## Show details for a single file:
+```bash
 
+`##List a specific path
 ./mini-ls mini-df
 -rwxr-xr-x  sentinel Nov 19 17:34 mini-df
 ```
