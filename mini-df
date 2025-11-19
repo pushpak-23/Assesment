@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+import os
+import sys
+
+VALID_FS = [
+    "ext4", "ext3", "ext2", "xfs", "btrfs", "zfs", "vfat",
+    "nfs", "nfs4", "cifs", "tmpfs", "overlay"
+]
+
+def humanize(size):
+    for unit in ["B", "K", "M", "G", "T", "P"]:
+        if size < 1024:
+            return f"{size:.1f}{unit}"
+        size /= 1024
+    return f"{size:.1f}P"
+
+
+def get_stats(path):
+    stat = os.statvfs(path)
+    total = stat.f_blocks * stat.f_frsize
+    free = stat.f_bfree * stat.f_frsize
+    return total, free
+
+
+def get_all_mounts():
+    mounts = []
+    with open("/proc/self/mounts") as f:
+        for line in f:
+            device, mnt, fstype, *_ = line.split()
+            if fstype not in VALID_FS:
+                continue
+            mounts.append((device, mnt))
+    return mounts
+
+
+def main():
+    args = sys.argv[1:]
+    hflag = False
+
+    if "-h" in args:
+        hflag = True
+        args.remove("-h")
+
+    if args:
+        mounts = [(p, p) for p in args]
+    else:
+        mounts = get_all_mounts()
+
+    print(f"{'Filesystem':<20} {'Total':>12} {'Free':>12}  Mounted on")
+
+    for device, mnt in mounts:
+        try:
+            total, free = get_stats(mnt)
+        except FileNotFoundError:
+            continue
+
+        if hflag:
+            total_out = f"{humanize(total):>12}"
+            free_out = f"{humanize(free):>12}"
+        else:
+            total_out = f"{total:>12}"
+            free_out = f"{free:>12}"
+
+        print(f"{device:<20} {total_out} {free_out}  {mnt}")
+
+
+if __name__ == "__main__":
+    main()
+
